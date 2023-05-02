@@ -1,0 +1,155 @@
+C START OF USER SUBROUTINE
+      SUBROUTINE UMAT(STRESS, STATEV, DDSDDE, SSE, SPD, SCD,
+     1 RPL, DDSDDT, DRPLDE, DRPLDT,
+     2 STRAN, DSTRAN, TIME, DTIME, TEMP, DTEMP, PREDEF, DPRED, CMNAME,
+     3 NDI, NSHR, NTENS, NSTATV, PROPS, NPROPS, COORDS, DROT, PNEWDT,
+     4 CELENT, DFGRD0, DFGRD1, NOEL, NPT, LAYER, KSPT, JSTEP, KINC)
+
+      INCLUDE 'ABA_PARAM.INC'
+
+      CHARACTER*80 CMNAME
+      DIMENSION STRESS(NTENS), STATEV(NSTATV),
+     1 DDSDDE(NTENS,NTENS), DDSDDT(NTENS), DRPLDE(NTENS),
+     2 STRAN(NTENS), DSTRAN(NTENS), TIME(2), PREDEF(1), DPRED(1),
+     3 PROPS(NPROPS), COORDS(3), DROT(3,3), DFGRD0(3,3), DFGRD1(3,3),
+     4 JSTEP(4)
+
+      ! USER DEFINITION
+      DOUBLE PRECISION ZERO, HALF, ONE, TWO, THREE, E, NU, SU, 
+     1 SL0, BETA, M0, B1, B2, A, FACTOR1, FACTOR2, FACTOR3, 
+     2 DMG, NCYCLE, SH_MAX, SH_MIN, SEQ_MAX, I1, I2, J2, SEQ, SH, 
+     3 SH_MEAN, DEV_AMP, AII, AII_STAR, MACAULAY, ALPHA
+
+      DIMENSION DEV_MAX(NTENS), DEV_MIN(NTENS), DEV(NTENS)
+
+      PARAMETER (ZERO = 0.0D0, HALF = 0.5D0, ONE = 1.0D0, 
+     1 TWO = 2.0D0, THREE = 3.0D0)
+
+      E = PROPS(1)
+      NU = PROPS(2)
+      SU = PROPS(3)
+      SL0 = PROPS(4)
+      BETA = PROPS(5)
+      M0 = PROPS(6)
+      B1 = PROPS(7)
+      B2 = PROPS(8)
+      A = PROPS(9)
+
+      DMG = STATEV(1)
+      NCYCLE = STATEV(2)
+      SH_MAX = STATEV(3)
+      SH_MIN = STATEV(4)
+      DO I = 1,NTENS
+            DEV_MAX(I) = STATEV(I+4)
+            DEV_MIN(I) = STATEV(I+10)
+      ENDDO
+      SEQ_MAX = STATEV(17)
+
+      FACTOR1 = E*(ONE-DMG)/(ONE+NU)/(ONE-TWO*NU)
+      FACTOR2 = (ONE-NU)
+      FACTOR3 = (ONE-TWO*NU)/TWO
+
+      DO I = 1,NTENS
+	    DO J = 1,NTENS
+	      DDSDDE(I,J) = ZERO
+	    ENDDO
+      ENDDO
+
+      DDSDDE(1,1) = (FACTOR1*FACTOR2)
+      DDSDDE(2,2) = (FACTOR1*FACTOR2)
+      DDSDDE(3,3) = (FACTOR1*FACTOR2)
+      DDSDDE(4,4) = (FACTOR1*FACTOR3)
+      DDSDDE(5,5) = (FACTOR1*FACTOR3)
+      DDSDDE(6,6) = (FACTOR1*FACTOR3)
+      DDSDDE(1,2) = (FACTOR1*NU)
+      DDSDDE(1,3) = (FACTOR1*NU)
+      DDSDDE(2,3) = (FACTOR1*NU)
+      DDSDDE(2,1) = (FACTOR1*NU)
+      DDSDDE(3,1) = (FACTOR1*NU)
+      DDSDDE(3,2) = (FACTOR1*NU)
+
+      DO I = 1,NTENS
+	   DO J = 1,NTENS
+	      STRESS(I) = STRESS(I)+DDSDDE(I,J)*DSTRAN(J)
+	   ENDDO
+      ENDDO
+
+      I1 = STRESS(1)+STRESS(2)+STRESS(3)
+      I2 = STRESS(1)*STRESS(2)+STRESS(2)*STRESS(3)+STRESS(3)*STRESS(1)
+     1 -STRESS(4)**TWO-STRESS(5)**TWO-STRESS(6)**TWO
+      J2 = I2-I1**TWO/THREE
+
+      SH = I1/THREE
+      IF(SH .GT. SH_MAX) THEN
+            SH_MAX = SH
+      ELSE IF (SH .LT. SH_MIN) THEN
+            SH_MIN = SH
+      END IF
+      
+      DO I = 1, NTENS
+            IF(I .LE. THREE) THEN
+                  DEV(I) = STRESS(I)-SH
+            ELSE
+                  DEV(I) = STRESS(I)
+            ENDIF
+            IF (DEV(I) .GT. DEV_MAX(I)) THEN
+                  DEV_MAX(I) = DEV(I)
+            ELSE IF (DEV(I) .LT. DEV_MIN(I)) THEN
+                  DEV_MIN(I) = DEV(I)
+            ENDIF
+      ENDDO
+
+      SEQ = (-THREE*J2)**HALF
+      IF (SEQ .GT. SEQ_MAX) THEN
+            SEQ_MAX = SEQ
+      ENDIF
+
+      IF ((TIME(1)+DTIME-NCYCLE) .EQ. ONE) THEN
+            NCYCLE = NCYCLE+ONE
+            SH_MEAN = (SH_MAX+SH_MIN)/TWO
+            DEV_AMP = ZERO
+            DO I = 1, NTENS
+                  DEV_AMP = DEV_AMP+(DEV_MAX(I)-DEV_MIN(I))**TWO
+            ENDDO
+            AII = (THREE/TWO*DEV_AMP)**HALF/TWO
+            AII_STAR = SL0*(1-THREE*B1*SH_MEAN)
+            MACAULAY = (AII-AII_STAR)/(SU-SEQ_MAX)
+            IF (MACAULAY .GT. ZERO) THEN
+                  ALPHA = ONE-A*MACAULAY
+            ELSE
+                  ALPHA = ONE
+            ENDIF
+            DMG = DMG+(ONE-(ONE-DMG)**(BETA+ONE))**ALPHA*
+     1      (AII/(M0*(ONE-THREE*B2*SH_MEAN)*(ONE-DMG)))**BETA
+      ENDIF
+
+      STATEV(1) = DMG
+      STATEV(2) = NCYCLE
+      STATEV(3) = SH_MAX
+      STATEV(4) = SH_MIN
+      DO I = 1,NTENS
+            STATEV(I+4) = DEV_MAX(I)
+            STATEV(I+10) = DEV_MIN(I)
+      ENDDO
+      STATEV(17) = SEQ_MAX
+
+      RETURN
+      END
+C END OF USER SUBROUTINE
+
+
+C START OF USER SUBROUTINE
+      SUBROUTINE SDVINI(STATEV, COORDS, NSTATV, NCRDS, NOEL, NPT, 
+     1 LAYER, KSPT)
+
+      INCLUDE 'ABA_PARAM.INC'
+
+      DIMENSION STATEV(NSTATV), COORDS(NCRDS)
+
+      ! USER DEFINITION
+      STATEV(1) = 1.0D-10
+
+      RETURN
+      END
+C END OF USER SUBROUTINE
+
