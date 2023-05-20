@@ -1,9 +1,35 @@
-	  MODULE COMMONPARAM
-	  IMPLICIT NONE
-	  DOUBLE PRECISION CRITELEM
-	  DIMENSION DDOTARR(37524,29)
-	  SAVE
-	  END MODULE
+	  ! MODULE COMMONPARAM
+	  ! IMPLICIT NONE
+	  ! DOUBLE PRECISION CRITELEM
+	  ! DIMENSION DDOTARR(37524,29)
+	  ! SAVE
+	  ! END MODULE
+
+
+      SUBROUTINE UEXTERNALDB(LOP,LRESTART,TIME,DTIME,KSTEP,KINC)
+      INCLUDE 'ABA_PARAM.INC'
+      DIMENSION TIME(2)
+
+      ! USER DEFINTION
+	  REAL*8 DDOTARR(37524)
+	  INTEGER PCYC, ISJUMP
+	  COMMON /STATEINFO/ DDOTARR, PCYC, ISQUPDT
+	  
+	  IF (LOP.EQ.1) THEN
+	    IF ((TIME(1)-PCYC).EQ.1) THEN
+		  PCYC = PCYC+1
+		  ISJUMP = 1
+		ELSE
+		  ISJUMP = 0
+		ENDIF
+	  ENDIF
+	  
+	  IF (LOP.EQ.2) THEN
+	    
+	  ENDIF
+	  
+      RETURN
+      END	
 	  
 	  
       SUBROUTINE UMAT(STRESS, STATEV, DDSDDE, SSE, SPD, SCD,
@@ -11,7 +37,7 @@
      2 STRAN, DSTRAN, TIME, DTIME, TEMP, DTEMP, PREDEF, DPRED, CMNAME,
      3 NDI, NSHR, NTENS, NSTATV, PROPS, NPROPS, COORDS, DROT, PNEWDT,
      4 CELENT, DFGRD0, DFGRD1, NOEL, NPT, LAYER, KSPT, JSTEP, KINC)
-	  USE COMMONPARAM !USER MODULE
+	  !USE COMMONPARAM !USER MODULE
       INCLUDE 'ABA_PARAM.INC'
       CHARACTER*80 CMNAME
       DIMENSION STRESS(NTENS), STATEV(NSTATV),
@@ -21,13 +47,15 @@
      4 JSTEP(4)
 
       ! USER DEFINITION
-      DOUBLE PRECISION ZERO, HALF, ONE, TWO, THREE, E, NU, SU, 
-     1 SL0, BETA, M0, B1, B2, A, TOL, FACTOR1, FACTOR2, FACTOR3, 
-     2 DMG, NCYC, SH_MAX, SH_MIN, SEQ_MAX, NF, I1, I2, J2, SEQ, SH, 
-     3 SH_MEAN, DEV_AMP, AII, AII_STAR, MACAULAY, ALPHA, DDOT, DN, DDMG
+      DOUBLE PRECISION E, NU, SU, SL0, BETA, M0, B1, B2, A, TOL, 
+     1 FACTOR1, FACTOR2, FACTOR3, DMG, NCYC, SH_MAX, SH_MIN, SEQ_MAX, 
+     2 NF, I1, I2, J2, SEQ, SH, SH_MEAN, DEV_AMP, AII, AII_STAR, 
+     3 MACAULAY, ALPHA, DDOT, DN, DDMG
       DIMENSION DEV_MAX(NTENS), DEV_MIN(NTENS), DEV(NTENS)
-      PARAMETER (ZERO = 0.0D0, HALF = 0.5D0, ONE = 1.0D0, 
-     1 TWO = 2.0D0, THREE = 3.0D0)
+	  
+	  REAL*8 DDOTARR(37524)
+	  INTEGER PCYC, ISJUMP
+	  COMMON /STATEINFO/ DDOTARR, PCYC, ISQUPDT
 
       E = PROPS(1)
       NU = PROPS(2)
@@ -42,23 +70,37 @@
       NF = 1.0D5
 
       DMG = STATEV(1)
-      CYC_PSEUDO = STATEV(2)
-      SH_MAX = STATEV(3)
-      SH_MIN = STATEV(4)
+	  NCYC = STATEV(2)
+	  SEQ_MAX = STATEV(3)
+      SH_MAX = STATEV(4)
+      SH_MIN = STATEV(5)
       DO I = 1, NTENS
-            DEV_MAX(I) = STATEV(I+4)
-            DEV_MIN(I) = STATEV(I+10)
+        DEV_MAX(I) = STATEV(I+5)
+        DEV_MIN(I) = STATEV(I+11)
       ENDDO
-      SEQ_MAX = STATEV(17)
-      NCYC = STATEV(18)
 
-      FACTOR1 = E*(ONE-DMG)/(ONE+NU)/(ONE-TWO*NU)
-      FACTOR2 = (ONE-NU)
-      FACTOR3 = (ONE-TWO*NU)/TWO
+	  IF (ISJUMP.EQ.1)) THEN
+		IF (DDOT .LE. 1.0D-4) THEN
+		  DN = 0.08*NF
+		ELSE IF ((DDOT .GT. 1.0D-4) .AND. (DDOT .LE. 1.0D-2)) THEN
+		  DN = 0.04*NF
+		ELSE
+		  DN = 0.01*NF
+		ENDIF
+		DDMG = DDOT*DN
+		IF ((DMG+DDMG) .LE. 1) THEN
+		  DMG = DMG+DDMG
+		  NCYC = NCYC+DN
+		ENDIF
+      ENDIF
+
+      FACTOR1 = E*(1-DMG)/(1+NU)/(1-2*NU)
+      FACTOR2 = (1-NU)
+      FACTOR3 = (1-2*NU)/2
 
       DO I = 1, NTENS
 	    DO J = 1,NTENS
-	      DDSDDE(I,J) = ZERO
+	      DDSDDE(I,J) = 0
 	    ENDDO
       ENDDO
 
@@ -83,74 +125,61 @@
 
       I1 = STRESS(1)+STRESS(2)+STRESS(3)
       I2 = STRESS(1)*STRESS(2)+STRESS(2)*STRESS(3)+STRESS(3)*STRESS(1)
-     1 -STRESS(4)**TWO-STRESS(5)**TWO-STRESS(6)**TWO
-      J2 = I2-I1**TWO/THREE
+     1 -STRESS(4)**2-STRESS(5)**2-STRESS(6)**2
+      J2 = I2-I1**2/3
+	  
+	  SEQ = (-3*J2)**0.5
+      IF (SEQ .GT. SEQ_MAX) THEN
+		SEQ_MAX = SEQ
+      ENDIF
 
-      SH = I1/THREE
+      SH = I1/3
       IF(SH .GT. SH_MAX) THEN
-            SH_MAX = SH
+        SH_MAX = SH
       ELSE IF (SH .LT. SH_MIN) THEN
-            SH_MIN = SH
+        SH_MIN = SH
       END IF
       
       DO I = 1, NTENS
-            IF(I .LE. THREE) THEN
-                  DEV(I) = STRESS(I)-SH
-            ELSE
-                  DEV(I) = STRESS(I)
-            ENDIF
-            IF (DEV(I) .GT. DEV_MAX(I)) THEN
-                  DEV_MAX(I) = DEV(I)
-            ELSE IF (DEV(I) .LT. DEV_MIN(I)) THEN
-                  DEV_MIN(I) = DEV(I)
-            ENDIF
+		IF(I .LE. 3) THEN
+		  DEV(I) = STRESS(I)-SH
+		ELSE
+		  DEV(I) = STRESS(I)
+		ENDIF
+		IF (DEV(I) .GT. DEV_MAX(I)) THEN
+		  DEV_MAX(I) = DEV(I)
+		ELSE IF (DEV(I) .LT. DEV_MIN(I)) THEN
+		  DEV_MIN(I) = DEV(I)
+		ENDIF
       ENDDO
-
-      SEQ = (-THREE*J2)**HALF
-      IF (SEQ .GT. SEQ_MAX) THEN
-            SEQ_MAX = SEQ
-      ENDIF
-
-      IF (((TIME(1)+DTIME-CYC_PSEUDO) .EQ. ONE)) THEN !.AND. (DMG .LE. (ONE-TOL))
-            CYC_PSEUDO = CYC_PSEUDO+ONE
-            SH_MEAN = (SH_MAX+SH_MIN)/TWO
-            DEV_AMP = ZERO
-            DO I = 1, NTENS
-                  DEV_AMP = DEV_AMP+(DEV_MAX(I)-DEV_MIN(I))**TWO
-            ENDDO
-            AII = (THREE/TWO*DEV_AMP)**HALF/TWO
-            AII_STAR = SL0*(ONE-THREE*B1*SH_MEAN)
-            ALPHA = ONE-A*MACAULAY((AII-AII_STAR)/(SU-SEQ_MAX))
-            DDOT = (ONE-(ONE-DMG)**(BETA+ONE))**ALPHA*
-     1      (AII/(M0*(ONE-THREE*B2*SH_MEAN)*(ONE-DMG)))**BETA
-!             IF (NCYC .EQ. ZERO) THEN
+	  
+	  IF ((TIME(1)+DTIME-PCYC).EQ.1) THEN
+		SH_MEAN = (SH_MAX+SH_MIN)/2
+		DEV_AMP = 0
+		DO I = 1, NTENS
+		  DEV_AMP = DEV_AMP+(DEV_MAX(I)-DEV_MIN(I))**2
+		ENDDO
+		AII = (3/2*DEV_AMP)**0.5/2
+		AII_STAR = SL0*(1-3*B1*SH_MEAN)
+		ALPHA = 1-A*MACAULAY((AII-AII_STAR)/(SU-SEQ_MAX))
+		DDOT = (1-(1-DMG)**(1+BETA))**ALPHA*
+     1  (AII/(M0*(1-3*B2*SH_MEAN)*(1-DMG)))**BETA
+!             IF (NCYC .EQ. 0) THEN
 !                   NF = MACAULAY((SU-SEQ_MAX)/(AII-AII_STAR))/
-!      1            (ONE+BETA)/A*(M0*(ONE-THREE*B2*SH_MEAN)/AII)**BETA
+!      1            (1+BETA)/A*(M0*(1-3*B2*SH_MEAN)/AII)**BETA
 !             ENDIF
-            IF (DDOT .LE. 1.0D-4) THEN
-                  DN = 0.08*NF
-            ELSE IF ((DDOT .GT. 1.0D-4) .AND. (DDOT .LE. 1.0D-2)) THEN
-                  DN = 0.04*NF
-            ELSE
-                  DN = 0.01*NF
-            ENDIF
-            DDMG = DDOT*DN
-            IF ((DMG+DDMG) .LE. ONE) THEN
-                  DMG = DMG+DDMG
-                  NCYC = NCYC+DN
-            ENDIF
-      ENDIF
+		DDOTARR(NOEL) = DDOT
+	  ENDIF
 
       STATEV(1) = DMG
-      STATEV(2) = CYC_PSEUDO
-      STATEV(3) = SH_MAX
-      STATEV(4) = SH_MIN
+	  STATEV(2) = NCYC
+	  STATEV(3) = SEQ_MAX
+      STATEV(4) = SH_MAX
+      STATEV(5) = SH_MIN
       DO I = 1, NTENS
-            STATEV(I+4) = DEV_MAX(I)
-            STATEV(I+10) = DEV_MIN(I)
+		STATEV(I+5) = DEV_MAX(I)
+		STATEV(I+11) = DEV_MIN(I)
       ENDDO
-      STATEV(17) = SEQ_MAX
-      STATEV(18) = NCYC
 
       RETURN
       END
@@ -168,17 +197,7 @@
 
       DOUBLE PRECISION FUNCTION MACAULAY(ARG)
       DOUBLE PRECISION ARG
-      MACAULAY = (ARG+DABS(ARG))/2.0
-      RETURN
-      END
-
-
-      SUBROUTINE UEXTERNALDB(LOP,LRESTART,TIME,DTIME,KSTEP,KINC)
-      INCLUDE 'ABA_PARAM.INC'
-      DIMENSION TIME(2)
-
-      ! USER DEFINTION
-
+      MACAULAY = (ARG+DABS(ARG))/2
       RETURN
       END
 
