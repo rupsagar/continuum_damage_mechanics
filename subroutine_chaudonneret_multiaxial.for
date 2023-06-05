@@ -15,7 +15,8 @@
       DIMENSION TIME(2)
   
 	  IF (LOP.EQ.0) THEN
-	    NUMEL = 140
+	    !NUMEL = 140
+		NUMEL = 37524
 		NINTP = 27
 		DMGINIT = 1E-2
 		DDMGINC = 1E-2
@@ -71,7 +72,7 @@
      2 TIME(2), PREDEF(1), DPRED(1), PROPS(NPROPS), COORDS(3), 
      3 DROT(3,3), DFGRD0(3,3), DFGRD1(3,3), JSTEP(4)
 
-      REAL E, NU, SU, SL0, BETA, M0, B1, B2, A, TOL, DMG, NCYC, 
+      REAL E, NU, SU, SL0, BETA, M0, B1, B2, A, TOL, DMG, EDMG, NCYC, 
      1 SH_MAX, SH_MIN, SEQ_MAX, NF, I1, I2, J2, SEQ, SH, SH_MEAN, 
      2 DEV_AMP, AII, AII_STAR, MACAULAY, ALPHA, DDOT, DN, DDMG, 
      3 DEV_MAX(NTENS), DEV_MIN(NTENS), DEV(NTENS)
@@ -87,27 +88,28 @@
       A = PROPS(9)
       TOL = PROPS(10)
       NF = 1.0E5
-
+	  
 	  DMG = STATEV(1)
-	  NCYC = STATEV(2)
-	  SEQ_MAX = STATEV(3)
-      SH_MAX = STATEV(4)
-      SH_MIN = STATEV(5)
+	  EDMG = STATEV(2)
+	  NCYC = STATEV(3)
+	  SEQ_MAX = STATEV(4)
+      SH_MAX = STATEV(5)
+      SH_MIN = STATEV(6)
       DO I = 1, NTENS
-        DEV_MAX(I) = STATEV(I+5)
-        DEV_MIN(I) = STATEV(I+11)
+        DEV_MAX(I) = STATEV(I+6)
+        DEV_MIN(I) = STATEV(I+12)
       ENDDO
 
 	  IF (CJUMP.EQ.1) THEN
+		IF (NPT.EQ.1) THEN
+		  KITER(NOEL) = KITER(NOEL)+1
+		  WRITE(6,*) 'JUMPING', NOEL, KITER(NOEL), DDOTMAX, DNMIN
+		ENDIF
 		DDMG = DDOTARR(NOEL,NPT)*DNMIN
 		IF ((DMG+DDMG).LE.1) THEN
 		  DMG = DMG+DDMG
 		  NCYC = NCYC+DNMIN
 		ENDIF
-		! IF (NPT.EQ.1) THEN
-		  ! KITER(NOEL) = KITER(NOEL)+1
-		  ! WRITE(6,*) 'IN JUMP', NOEL, KITER(NOEL), DSTRAN(1)
-		! ENDIF
       ENDIF
 
       DO I = 1,NTENS
@@ -115,19 +117,20 @@
 	      DDSDDE(I,J) = 0
 	    ENDDO
       ENDDO
-
-      DDSDDE(1,1) = E*(1-DMG)/(1+NU)/(1-2*NU)*(1-NU)
-      DDSDDE(2,2) = E*(1-DMG)/(1+NU)/(1-2*NU)*(1-NU)
-      DDSDDE(3,3) = E*(1-DMG)/(1+NU)/(1-2*NU)*(1-NU)
-      DDSDDE(4,4) = E*(1-DMG)/(1+NU)/(1-2*NU)*(1-2*NU)/2
-      DDSDDE(5,5) = E*(1-DMG)/(1+NU)/(1-2*NU)*(1-2*NU)/2
-      DDSDDE(6,6) = E*(1-DMG)/(1+NU)/(1-2*NU)*(1-2*NU)/2
-      DDSDDE(1,2) = E*(1-DMG)/(1+NU)/(1-2*NU)*NU
-      DDSDDE(1,3) = E*(1-DMG)/(1+NU)/(1-2*NU)*NU
-      DDSDDE(2,3) = E*(1-DMG)/(1+NU)/(1-2*NU)*NU
-      DDSDDE(2,1) = E*(1-DMG)/(1+NU)/(1-2*NU)*NU
-      DDSDDE(3,1) = E*(1-DMG)/(1+NU)/(1-2*NU)*NU
-      DDSDDE(3,2) = E*(1-DMG)/(1+NU)/(1-2*NU)*NU
+	  
+	  EDMG = E*(1-DMG)
+      DDSDDE(1,1) = EDMG/(1+NU)/(1-2*NU)*(1-NU)
+      DDSDDE(2,2) = EDMG/(1+NU)/(1-2*NU)*(1-NU)
+      DDSDDE(3,3) = EDMG/(1+NU)/(1-2*NU)*(1-NU)
+      DDSDDE(4,4) = EDMG/(1+NU)/(1-2*NU)*(1-2*NU)/2
+      DDSDDE(5,5) = EDMG/(1+NU)/(1-2*NU)*(1-2*NU)/2
+      DDSDDE(6,6) = EDMG/(1+NU)/(1-2*NU)*(1-2*NU)/2
+      DDSDDE(1,2) = EDMG/(1+NU)/(1-2*NU)*NU
+      DDSDDE(1,3) = EDMG/(1+NU)/(1-2*NU)*NU
+      DDSDDE(2,3) = EDMG/(1+NU)/(1-2*NU)*NU
+      DDSDDE(2,1) = EDMG/(1+NU)/(1-2*NU)*NU
+      DDSDDE(3,1) = EDMG/(1+NU)/(1-2*NU)*NU
+      DDSDDE(3,2) = EDMG/(1+NU)/(1-2*NU)*NU
 
       DO I = 1,NTENS
 	   DO J = 1,NTENS
@@ -182,15 +185,16 @@
         ! ENDIF
 		DDOTARR(NOEL,NPT) = DDOT
 	  ENDIF
-
-      STATEV(1) = DMG
-	  STATEV(2) = NCYC
-	  STATEV(3) = SEQ_MAX
-      STATEV(4) = SH_MAX
-      STATEV(5) = SH_MIN
+	  
+	  STATEV(1) = DMG
+	  STATEV(2) = EDMG
+	  STATEV(3) = NCYC
+	  STATEV(4) = SEQ_MAX
+      STATEV(5) = SH_MAX
+      STATEV(6) = SH_MIN
       DO I = 1,NTENS
-		STATEV(I+5) = DEV_MAX(I)
-		STATEV(I+11) = DEV_MIN(I)
+		STATEV(I+6) = DEV_MAX(I)
+		STATEV(I+12) = DEV_MIN(I)
       ENDDO
 
       RETURN
@@ -209,6 +213,7 @@
       REAL FUNCTION MACAULAY(ARG)
       REAL ARG
       MACAULAY = (ARG+ABS(ARG))/2
+	  WRITE(6,*) 'ARG', ARG, 'MAC', MACAULAY
       RETURN
       END
 	  
