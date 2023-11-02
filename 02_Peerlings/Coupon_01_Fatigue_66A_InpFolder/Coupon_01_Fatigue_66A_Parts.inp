@@ -407,6 +407,8 @@
  217, 218, 219, 220, 221, 222, 223, 224
 *Nset, nset=Nset_BC_NegX_Part_1
    9,  10,  11,  12,  20,  41,  42,  43,  44, 116, 117, 118, 199, 200
+*Nset, nset=Nset_BC_PosX_Part_1
+  13,  14,  15,  16,  17,  80,  81,  88,  89,  93,  94,  95, 175, 176
 *Elset, elset=_Surf_Load_PosX_Part_1_S1, internal, generate
  52,  56,   1
 *Elset, elset=_Surf_Load_PosX_Part_1_S5, internal, generate
