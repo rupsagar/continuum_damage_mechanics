@@ -419,6 +419,8 @@ Coupon_01_Fatigue_66A_Instance_1.Nset_BC_NegY_Part_1, 2, 2
 ** Name: BC_PosZ_Instance_1 Type: Displacement/Rotation
 *Boundary
 Coupon_01_Fatigue_66A_Instance_1.Nset_BC_PosZ_Part_1, 3, 3
+**Boundary, amplitude=Cyclic_Load
+**Coupon_01_Fatigue_66A_Instance_1.Nset_BC_PosX_Part_1, 1, 1, 0.0246
 ** 
 ** LOADS
 ** 
