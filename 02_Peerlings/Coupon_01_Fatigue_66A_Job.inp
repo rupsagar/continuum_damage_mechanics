@@ -16,5 +16,7 @@
 **
 ** MATERIALS
 *Include, input = ./Coupon_01_Fatigue_66A_InpFolder/Coupon_01_Fatigue_66A_Materials.inp
+** AMPLITUDE
+*Include, input = ./Coupon_01_Fatigue_66A_InpFolder/Coupon_01_Fatigue_66A_Amplitude.inp
 ** STEP: Load
 *Include, input = ./Coupon_01_Fatigue_66A_InpFolder/Coupon_01_Fatigue_66A_Step.inp
