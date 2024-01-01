@@ -1,5 +1,5 @@
 ** 
-*Step, name=Load, nlgeom=NO, inc=1003
+*Step, name=Load, nlgeom=NO, inc=10003
 *Static
 0.25, 250.50, 0.0001, 0.25
 ** 
