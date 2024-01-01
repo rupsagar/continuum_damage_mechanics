@@ -13,7 +13,7 @@
 *End Instance
 **  
 *End Assembly
-**
+** 
 ** MATERIALS
 *Include, input = ./Coupon_01_Fatigue_66A_InpFolder/Coupon_01_Fatigue_66A_Materials.inp
 ** AMPLITUDE
